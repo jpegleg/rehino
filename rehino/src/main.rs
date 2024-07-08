@@ -3,8 +3,6 @@ use std::sync::Arc;
 use std::cell::RefCell;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::error::Error;
-use std::io::Cursor;
 
 use uuid::Uuid;
 use async_trait::async_trait;
