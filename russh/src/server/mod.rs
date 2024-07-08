@@ -95,11 +95,10 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            server_id: SshId::Standard(format!(
-                "SSH-2.0-{}_{}",
-                env!("CARGO_PKG_NAME"),
-                env!("CARGO_PKG_VERSION")
-            )),
+            // fake header for honeypot purposes, replace as needed
+            server_id: SshId::Standard(
+                "SSH-2.0-OpenSSH_9.2p1 Debian-2+deb12u3".to_string(),
+            ),
             methods: auth::MethodSet::all(),
             auth_banner: None,
             auth_rejection_time: std::time::Duration::from_secs(1),
