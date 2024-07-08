@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::fmt;
 
 use crate::key::{RsaCrtExtra, SignatureHash};
 use crate::{protocol, Error};
@@ -12,12 +13,91 @@ pub struct RsaPublic {
     key: rsa::RsaPublicKey,
 }
 
+impl fmt::Debug for RsaPrivate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Estimate the maximum size needed for all components
+        let max_component_size = self.key.n().bits() / 8 + 1; // Size in bytes + 1 for potential leading zero
+        let num_components = 3 + self.key.primes().len() + 1; // n, e, d, primes, crt_coefficient
+        let buffer_size = max_component_size * num_components;
+
+        // Allocate a buffer on the heap
+        let mut buffer = Vec::with_capacity(buffer_size);
+
+        // Helper function to format a BigUint into the buffer
+        let format_biguint = |buf: &mut Vec<u8>, biguint: &BigUint| {
+            buf.clear();
+            buf.extend_from_slice(&biguint.to_bytes_be());
+            format!("{:?}", buf)
+        };
+
+        // Format the key components
+        let n = format_biguint(&mut buffer, self.key.n());
+        let e = format_biguint(&mut buffer, self.key.e());
+        let d = format_biguint(&mut buffer, self.key.d());
+
+        let primes: Vec<String> = self.key.primes()
+            .iter()
+            .map(|p| format_biguint(&mut buffer, p))
+            .collect();
+
+        let crt_coefficient = self.key.crt_coefficient()
+            .as_ref().map(|c| format_biguint(&mut buffer, c));
+
+        // Use the debug_struct formatter
+        f.debug_struct("RsaPrivate")
+            .field("n", &n)
+            .field("e", &e)
+            .field("d", &d)
+            .field("primes", &primes)
+            .field("crt_coefficient", &crt_coefficient)
+            .finish()
+    }
+}
+
+
+impl std::fmt::Debug for RsaPublic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Estimate the maximum size needed for components
+        let max_component_size = self.key.n().bits() / 8 + 1; // Size in bytes + 1 for potential leading zero
+        let num_components = 2; // n and e
+        let buffer_size = max_component_size * num_components;
+
+        // Allocate a buffer on the heap
+        let mut buffer = Vec::with_capacity(buffer_size);
+
+        // Helper function to format a BigUint into the buffer
+        let format_biguint = |buf: &mut Vec<u8>, biguint: &BigUint| {
+            buf.clear();
+            buf.extend_from_slice(&biguint.to_bytes_be());
+            format!("{:?}", buf)
+        };
+
+        // Format the key components
+        let n = format_biguint(&mut buffer, self.key.n());
+        let e = format_biguint(&mut buffer, self.key.e());
+
+        // Use the debug_struct formatter
+        f.debug_struct("RsaPublic")
+            .field("n", &n)
+            .field("e", &e)
+            .finish()
+    }
+}
+
 impl RsaPublic {
     pub fn verify_detached(&self, hash: &SignatureHash, msg: &[u8], sig: &[u8]) -> bool {
         self.key
             .verify(signature_scheme_for_hash(hash), &hash_msg(hash, msg), sig)
             .is_ok()
     }
+    pub fn get_n(&self) -> &BigUint {
+        self.key.n()
+    }
+    pub fn get_e(&self) -> &BigUint {
+        self.key.e()
+    }
+
+
 }
 
 impl TryFrom<&protocol::RsaPublicKey<'_>> for RsaPublic {
@@ -40,13 +120,9 @@ impl<'a> From<&RsaPublic> for protocol::RsaPublicKey<'a> {
             public_exponent: key.key.e().to_bytes_be().into(),
         }
     }
+
 }
 
-impl std::fmt::Debug for RsaPublic {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "RsaPublic {{ (hidden) }}")
-    }
-}
 
 #[derive(Clone)]
 pub struct RsaPrivate {
