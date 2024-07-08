@@ -14,6 +14,7 @@
 //
 use std::borrow::Cow;
 use std::convert::{TryFrom, TryInto};
+use std::io::{self, Write};
 
 use ed25519_dalek::{Signer, Verifier};
 use rand_core::OsRng;
@@ -26,6 +27,11 @@ use crate::encoding::{Encoding, Reader};
 use crate::protocol;
 pub use crate::signature::*;
 use crate::Error;
+
+use rsa::{
+    traits::{PrivateKeyParts, PublicKeyParts},
+    BigUint,
+};
 
 pub use backend::{RsaPrivate, RsaPublic};
 
@@ -107,7 +113,7 @@ impl SignatureHash {
 }
 
 /// Public key
-#[derive(Eq, Debug, Clone)]
+#[derive(Eq, Clone)]
 pub enum PublicKey {
     Ed25519(ed25519_dalek::VerifyingKey),
     RSA {
@@ -115,6 +121,23 @@ pub enum PublicKey {
         hash: SignatureHash,
     },
     EC { key: ec::PublicKey },
+}
+
+impl std::fmt::Debug for PublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PublicKey::Ed25519(ed_key) => f.debug_tuple("Ed25519")
+                .field(ed_key)
+                .finish(),
+            PublicKey::RSA { key, hash } => f.debug_struct("RSA")
+                .field("key", key)
+                .field("hash", hash)
+                .finish(),
+            PublicKey::EC { key } => f.debug_struct("EC")
+                .field("key", key)
+                .finish(),
+        }
+    }
 }
 
 impl PartialEq for PublicKey {
@@ -129,6 +152,48 @@ impl PartialEq for PublicKey {
 }
 
 impl PublicKey {
+    pub fn write_debug_info<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+        match self {
+            PublicKey::RSA { key, hash } => {
+                writeln!(writer, "RSA Public Key:")?;
+
+                // Allocate a buffer on the heap
+                let max_component_size = key.get_n().bits() / 8 + 1;
+                let mut buffer = Vec::with_capacity(max_component_size);
+
+                // Helper function to format a BigUint into the buffer
+                let format_biguint = |buf: &mut Vec<u8>, biguint: &BigUint| {
+                    buf.clear();
+                    buf.extend_from_slice(&biguint.to_bytes_be());
+                    format!("{:?}", buf)
+                };
+
+                // Format the key components
+                let n = format_biguint(&mut buffer, key.get_n());
+                let e = format_biguint(&mut buffer, key.get_e());
+
+                writeln!(writer, "  Modulus (n): {}", n)?;
+                writeln!(writer, "  Exponent (e): {}", e)?;
+                writeln!(writer, "  Hash algorithm: {:?}", hash)?;
+            },
+            PublicKey::Ed25519(ed_key) => {
+                writeln!(writer, "Ed25519 Public Key:")?;
+                for (i, byte) in ed_key.as_bytes().iter().enumerate() {
+                    if i % 16 == 0 && i > 0 {
+                        writeln!(writer)?;
+                    }
+                    write!(writer, "{:02x} ", byte)?;
+                }
+                writeln!(writer)?;
+            },
+            PublicKey::EC { key } => {
+                writeln!(writer, "EC Public Key:")?;
+                // Add EC-specific debug info here
+                writeln!(writer, "  EC key details: {:?}", key)?;
+            },
+        }
+        Ok(())
+    }
     /// Parse a public key in SSH format.
     pub fn parse(algo: &[u8], pubkey: &[u8]) -> Result<Self, Error> {
         use ssh_encoding::Decode;
@@ -237,17 +302,25 @@ impl Clone for KeyPair {
     }
 }
 
-impl std::fmt::Debug for KeyPair {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match *self {
-            KeyPair::Ed25519(ref key) => write!(
-                f,
+impl KeyPair {
+    fn to_debug_string(&self) -> String {
+        match self {
+            KeyPair::Ed25519(ref key) => format!(
                 "Ed25519 {{ public: {:?}, secret: (hidden) }}",
                 key.verifying_key().as_bytes()
             ),
-            KeyPair::RSA { .. } => write!(f, "RSA {{ {:?} }}", self),
-            KeyPair::EC { .. } => write!(f, "EC {{ {:?} }}", self),
+            KeyPair::RSA { ref key, hash } => format!(
+                "RSA {{ {:?} {:?}}}",
+                key, hash
+            ),
+            KeyPair::EC { .. } => format!("EC {{ {:?} }}", self),
         }
+    }
+}
+
+impl std::fmt::Debug for KeyPair {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.to_debug_string())
     }
 }
 
