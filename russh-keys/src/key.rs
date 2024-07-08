@@ -33,8 +33,6 @@ use rsa::{
     BigUint,
 };
 
-pub use backend::{RsaPrivate, RsaPublic};
-
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 /// Name of a public key algorithm.
 pub struct Name(pub &'static str);
