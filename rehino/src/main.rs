@@ -1,8 +1,10 @@
-use std::collections::HashMap;
+-use std::collections::HashMap;
 use std::sync::Arc;
 use std::cell::RefCell;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::error::Error;
+use std::io::Cursor;
 
 use uuid::Uuid;
 use async_trait::async_trait;
@@ -98,7 +100,6 @@ impl server::Server for Server {
     }
 }
 
-
 #[async_trait]
 impl server::Handler for Server {
     type Error = anyhow::Error;
@@ -117,7 +118,19 @@ impl server::Handler for Server {
         username: &str,
         public_key: &key::PublicKey,
     ) -> Result<server::Auth, Self::Error> {
-        log::debug!("{} - Public key {:?} from user: {}", &self.session_id, public_key, username);
+        let mut debug_buffer = Vec::new();
+        if let Err(e) = public_key.write_debug_info(&mut debug_buffer) {
+            log::warn!("Failed to write public key debug info: {}", e);
+        } else {
+            let debug_info = String::from_utf8_lossy(&debug_buffer);
+            log::debug!(
+                "{} - Public key info for user {}:\n{}",
+                &self.session_id,
+                username,
+                debug_info
+            );
+        }
+
         Ok(server::Auth::Accept)
     }
 
@@ -141,7 +154,7 @@ impl server::Handler for Server {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error>>  {
     let env_logger = env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Debug)
         .build();
