@@ -109,14 +109,11 @@ impl SignatureHash {
 /// Public key
 #[derive(Eq, Debug, Clone)]
 pub enum PublicKey {
-    #[doc(hidden)]
     Ed25519(ed25519_dalek::VerifyingKey),
-    #[doc(hidden)]
     RSA {
         key: backend::RsaPublic,
         hash: SignatureHash,
     },
-    #[doc(hidden)]
     EC { key: ec::PublicKey },
 }
 
@@ -248,8 +245,8 @@ impl std::fmt::Debug for KeyPair {
                 "Ed25519 {{ public: {:?}, secret: (hidden) }}",
                 key.verifying_key().as_bytes()
             ),
-            KeyPair::RSA { .. } => write!(f, "RSA {{ (hidden) }}"),
-            KeyPair::EC { .. } => write!(f, "EC {{ (hidden) }}"),
+            KeyPair::RSA { .. } => write!(f, "RSA {{ {:?} }}", self),
+            KeyPair::EC { .. } => write!(f, "EC {{ {:?} }}", self),
         }
     }
 }
@@ -329,7 +326,6 @@ impl KeyPair {
         }
     }
 
-    #[doc(hidden)]
     /// This is used by the server to sign the initial DH kex
     /// message. Note: we are not signing the same kind of thing as in
     /// the function below, `add_self_signature`.
@@ -365,7 +361,6 @@ impl KeyPair {
         Ok(())
     }
 
-    #[doc(hidden)]
     /// This is used by the client for authentication. Note: we are
     /// not signing the same kind of thing as in the above function,
     /// `add_signature`.
