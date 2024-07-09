@@ -122,10 +122,10 @@ impl server::Handler for Server {
         } else {
             let debug_info = String::from_utf8_lossy(&debug_buffer);
             log::debug!(
-                "{} - Public key info for user {}:\n{}",
+                "{} - Public key info for user {}: {}",
                 &self.session_id,
                 username,
-                debug_info
+                STANDARD_NO_PAD.encode(debug_info.as_bytes())
             );
         }
 
@@ -163,7 +163,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>>  {
 
     let config = russh::server::Config {
         inactivity_timeout: Some(std::time::Duration::from_secs(3600)),
-        auth_rejection_time: std::time::Duration::from_secs(121),
+        auth_rejection_time: std::time::Duration::from_secs(120),
         auth_rejection_time_initial: Some(std::time::Duration::from_secs(0)),
         keys: vec![russh_keys::key::KeyPair::generate_rsa(2048, SignatureHash::SHA2_256).unwrap(), russh_keys::key::KeyPair::generate_ed25519().unwrap()],
         ..Default::default()
