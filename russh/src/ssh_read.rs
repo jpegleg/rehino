@@ -4,6 +4,7 @@ use futures::task::*;
 use log::debug;
 use russh_cryptovec::CryptoVec;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, ReadBuf};
+use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
 
 use crate::Error;
 
@@ -128,7 +129,8 @@ impl<R: AsyncRead + Unpin> SshRead<R> {
             ssh_id.total += n;
             #[allow(clippy::indexing_slicing)] // length checked
             {
-                debug!("{:?}", std::str::from_utf8(&ssh_id.buf[..ssh_id.total]));
+                let message = &ssh_id.buf[..ssh_id.total];
+                debug!("{:?}", STANDARD_NO_PAD.encode(message));
             }
             if n == 0 {
                 return Err(Error::Disconnect);
