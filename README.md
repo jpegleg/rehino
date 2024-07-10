@@ -33,7 +33,7 @@ Each client (source) gets a session ID. The session ID is made from two elements
 
 - expand logging of russh to leverage session id as well
 - fix/expand logging regarding RSA exponents in public keys (currently each client public key exponent is debug logged as the byte array of [1, 0, 1] haha)
-- support additional kex algorith modules (and add some additional kex algos in said detached modules)
+- support additional kex algorithm modules (and add some additional kex algos in said detached modules)
 
 
 
